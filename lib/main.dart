@@ -1,8 +1,9 @@
+import 'dart:convert'; // Required for jsonEncode/jsonDecode
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_localizations/flutter_localizations.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -11,7 +12,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Chat App',
       theme: ThemeData(
         // This is the theme of your application.
         //
@@ -28,9 +29,21 @@ class MyApp extends StatelessWidget {
         //
         // This works for code too, not just values: Most code changes can be
         // tested with just a hot reload.
+        fontFamily: 'NotoSans',
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
+      // Localization settings: include these if you are targeting multiple locales.
+      localizationsDelegates: [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en', ''), // English
+        Locale('tr', ''), // Turkish
+        // Add other locales if needed
+      ],
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
@@ -38,15 +51,6 @@ class MyApp extends StatelessWidget {
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
 
   final String title;
 
@@ -59,19 +63,66 @@ class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _textController = TextEditingController();
   final FocusNode _textFieldFocus = FocusNode();
 
-  void _handleSend(String text) {
+  // Added ScrollController for ListView auto-scrolling
+  final ScrollController _scrollController = ScrollController();
+
+  Future<void> _handleSend(String text) async {
     if (text.isNotEmpty) {
+      // Immediately clear the text field.
+      _textController.clear();
+
+      // Add the user's message to the chat list.
       setState(() {
         _messages.add(ChatMessage(text: text, isUser: true));
-        _messages.add(ChatMessage(text: _reverseText(text), isUser: false));
       });
-      _textController.clear();
+      _scrollToBottom();
+
+      final url = Uri.parse('http://127.0.0.1:8000/process');
+
+      try {
+        final response = await http.post(
+          url,
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"text": text}),
+        );
+
+        if (response.statusCode == 200) {
+          final decoded = jsonDecode(response.body);
+          setState(() {
+            _messages.add(ChatMessage(text: decoded['text'], isUser: false));
+          });
+          _scrollToBottom();
+        } else {
+          setState(() {
+            _messages.add(ChatMessage(
+                text: 'Error: ${response.statusCode}', isUser: false));
+          });
+          _scrollToBottom();
+        }
+      } catch (e) {
+        setState(() {
+          _messages.add(ChatMessage(text: 'Error: $e', isUser: false));
+        });
+        _scrollToBottom();
+      }
+
+      // Bring the focus back to the text field.
       _textFieldFocus.requestFocus();
     }
   }
 
-  String _reverseText(String text) =>
-      String.fromCharCodes(text.runes.toList().reversed);
+  // Function to scroll the ListView to the bottom
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +135,7 @@ class _MyHomePageState extends State<MyHomePage> {
         children: [
           Expanded(
             child: ListView.builder(
+              controller: _scrollController, // Attach the ScrollController
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final message = _messages[index];
@@ -119,7 +171,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(vertical: 12),
                     ),
-                    onSubmitted: _handleSend,
+                    onSubmitted: (text) => _handleSend(text),
                   ),
                 ),
                 Padding(
@@ -128,7 +180,6 @@ class _MyHomePageState extends State<MyHomePage> {
                     icon: const Icon(Icons.send),
                     onPressed: () {
                       _handleSend(_textController.text);
-                      _textFieldFocus.requestFocus();
                     },
                   ),
                 ),
@@ -144,6 +195,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void dispose() {
     _textController.dispose();
     _textFieldFocus.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 }
