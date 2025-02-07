@@ -66,6 +66,44 @@ class _MyHomePageState extends State<MyHomePage> {
   // Added ScrollController for ListView auto-scrolling
   final ScrollController _scrollController = ScrollController();
 
+  // Add initState to initialize the chat as soon as the app opens.
+  @override
+  void initState() {
+    super.initState();
+    _initializeChat();
+  }
+
+  // New function to send an init signal to the backend.
+  Future<void> _initializeChat() async {
+    final url = Uri.parse('http://127.0.0.1:8000/init');
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+      );
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        setState(() {
+          _messages.add(ChatMessage(text: decoded['text'], isUser: false));
+        });
+        _scrollToBottom();
+      } else {
+        setState(() {
+          _messages.add(ChatMessage(
+              text: 'Error initializing chat: ${response.statusCode}',
+              isUser: false));
+        });
+        _scrollToBottom();
+      }
+    } catch (e) {
+      setState(() {
+        _messages.add(
+            ChatMessage(text: 'Error initializing chat: $e', isUser: false));
+      });
+      _scrollToBottom();
+    }
+  }
+
   Future<void> _handleSend(String text) async {
     if (text.isNotEmpty) {
       // Immediately clear the text field.
