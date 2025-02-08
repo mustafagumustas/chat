@@ -2,6 +2,7 @@ import 'dart:convert'; // Required for jsonEncode/jsonDecode
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'calendar_page.dart'; // Import the new CalendarPage file
 
 void main() => runApp(const MyApp());
 
@@ -12,6 +13,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Chat App',
       theme: ThemeData(
         // This is the theme of your application.
@@ -29,9 +31,20 @@ class MyApp extends StatelessWidget {
         //
         // This works for code too, not just values: Most code changes can be
         // tested with just a hot reload.
-        fontFamily: 'NotoSans',
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        fontFamily: 'CocomatPro',
+        primaryColor: const Color(0xFF4CAF50),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4CAF50)),
         useMaterial3: true,
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(50),
+            borderSide: const BorderSide(color: Color(0xFF4CAF50)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(50),
+            borderSide: const BorderSide(color: Color(0xFF4CAF50)),
+          ),
+        ),
       ),
       // Localization settings: include these if you are targeting multiple locales.
       localizationsDelegates: [
@@ -165,15 +178,98 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF9F0),
+      // Add a Drawer that contains the sections menu.
+      drawer: Container(
+        width: 250, // Thinner section width.
+        child: Drawer(
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(
+                  top: 20.0), // Top padding from screen edge.
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 20.0),
+                    minLeadingWidth: 30,
+                    horizontalTitleGap: 20,
+                    leading: const Icon(
+                      Icons.person,
+                      color: Color(0xFF6D4C41),
+                    ),
+                    title: const Text('Profile'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      // TODO: Add functionality to navigate to the profile page.
+                    },
+                  ),
+                  ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 20.0),
+                    minLeadingWidth: 30,
+                    horizontalTitleGap: 20,
+                    leading: const Icon(
+                      Icons.chat,
+                      color: Color(0xFF6D4C41),
+                    ),
+                    title: const Text('Chat'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const MyHomePage(title: 'Chat App'),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Colors.transparent, // Remove AppBar background.
+        elevation: 0,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(
+              Icons.menu,
+              color: Color(0xFF6D4C41),
+            ),
+            onPressed: () {
+              Scaffold.of(context)
+                  .openDrawer(); // Open the Drawer when pressed.
+            },
+          ),
+        ),
         title: const Text('Chat App'),
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.calendar_today, // Calendar icon on the right.
+              color: Color(0xFF6D4C41),
+              size: 32.0,
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const CalendarPage()),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
           Expanded(
             child: ListView.builder(
-              controller: _scrollController, // Attach the ScrollController
+              controller: _scrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final message = _messages[index];
@@ -182,16 +278,23 @@ class _MyHomePageState extends State<MyHomePage> {
                       ? Alignment.centerRight
                       : Alignment.centerLeft,
                   padding:
-                      const EdgeInsets.symmetric(vertical: 4, horizontal: 18),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color:
-                          message.isUser ? Colors.blue[200] : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(message.text),
-                  ),
+                      const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  child: message.isUser
+                      ? Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).primaryColor,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            message.text,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.all(12),
+                          child: Text(message.text),
+                        ),
                 );
               },
             ),
@@ -204,18 +307,27 @@ class _MyHomePageState extends State<MyHomePage> {
                   child: TextField(
                     controller: _textController,
                     focusNode: _textFieldFocus,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Type a message...',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(50),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 20,
+                      ),
                     ),
                     onSubmitted: (text) => _handleSend(text),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
+                  padding: const EdgeInsets.only(left: 8.0, bottom: 4.0),
                   child: IconButton(
-                    icon: const Icon(Icons.send),
+                    icon: const Icon(
+                      Icons.arrow_upward, // Send icon is an up arrow.
+                      color: Color(0xFF6D4C41),
+                      size: 32.0,
+                    ),
                     onPressed: () {
                       _handleSend(_textController.text);
                     },
