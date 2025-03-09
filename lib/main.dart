@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'calendar_page.dart'; // Import the new CalendarPage file
+import 'profile_page.dart'; // Import the Profile page
+import 'dart:async';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(const MyApp());
 
@@ -79,20 +83,72 @@ class _MyHomePageState extends State<MyHomePage> {
   // Added ScrollController for ListView auto-scrolling
   final ScrollController _scrollController = ScrollController();
 
+  String? _userId;
+
   // Add initState to initialize the chat as soon as the app opens.
   @override
   void initState() {
     super.initState();
-    _initializeChat();
+    _initializeUserId();
   }
 
-  // New function to send an init signal to the backend.
+  Future<void> _initializeUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    _userId = prefs.getString('user_id');
+    print('Fetched user_id: $_userId'); // Debugging line
+
+    if (_userId == null) {
+      _promptForUserId();
+      print('Fetched user_id: $_userId');
+    } else {
+      print('Fetched user_id: $_userId');
+      _initializeChat();
+    }
+  }
+
+  Future<void> _promptForUserId() async {
+    final userId = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final TextEditingController controller = TextEditingController();
+        return AlertDialog(
+          title: const Text('Enter User ID'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(hintText: 'User ID'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(controller.text);
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (userId != null && userId.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_id', userId);
+      setState(() {
+        _userId = userId;
+      });
+      _initializeChat();
+    }
+  }
+
   Future<void> _initializeChat() async {
-    final url = Uri.parse('http://127.0.0.1:8000/init');
+    if (_userId == null) return; // Ensure user_id is set
+
+    final url = Uri.parse('http://192.168.1.26:8000/process');
     try {
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
+        body: jsonEncode(
+            {"user_id": _userId, "text": "Hello, let's start our chat!"}),
       );
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
@@ -103,22 +159,24 @@ class _MyHomePageState extends State<MyHomePage> {
       } else {
         setState(() {
           _messages.add(ChatMessage(
-              text: 'Error initializing chat: ${response.statusCode}',
-              isUser: false));
+            text: 'Error initializing chat: ${response.statusCode}',
+            isUser: false,
+          ));
         });
         _scrollToBottom();
       }
     } catch (e) {
       setState(() {
         _messages.add(
-            ChatMessage(text: 'Error initializing chat: $e', isUser: false));
+          ChatMessage(text: 'Error initializing chat: $e', isUser: false),
+        );
       });
       _scrollToBottom();
     }
   }
 
   Future<void> _handleSend(String text) async {
-    if (text.isNotEmpty) {
+    if (text.isNotEmpty && _userId != null) {
       // Immediately clear the text field.
       _textController.clear();
 
@@ -128,13 +186,13 @@ class _MyHomePageState extends State<MyHomePage> {
       });
       _scrollToBottom();
 
-      final url = Uri.parse('http://127.0.0.1:8000/process');
+      final url = Uri.parse('http://192.168.1.26:8000/process');
 
       try {
         final response = await http.post(
           url,
           headers: {"Content-Type": "application/json"},
-          body: jsonEncode({"text": text}),
+          body: jsonEncode({"user_id": _userId, "text": text}),
         );
 
         if (response.statusCode == 200) {
@@ -177,166 +235,202 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF9F0),
-      // Add a Drawer that contains the sections menu.
-      drawer: Container(
-        width: 250, // Thinner section width.
-        child: Drawer(
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(
-                  top: 20.0), // Top padding from screen edge.
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  ListTile(
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 20.0),
-                    minLeadingWidth: 30,
-                    horizontalTitleGap: 20,
-                    leading: const Icon(
-                      Icons.person,
-                      color: Color(0xFF6D4C41),
+    // Wrapping with WillPopScope disables the swipe/back gesture.
+    return WillPopScope(
+      onWillPop: () async => false,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFFFF9F0),
+        // Add a Drawer that contains the sections menu.
+        drawer: Container(
+          width: 250, // Thinner section width.
+          child: Drawer(
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(
+                    top: 20.0), // Top padding from screen edge.
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    // Navigate to Profile if not active.
+                    ListTile(
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 20.0),
+                      minLeadingWidth: 30,
+                      horizontalTitleGap: 20,
+                      leading: const Icon(
+                        Icons.person,
+                        color: Color(0xFF6D4C41),
+                      ),
+                      title: const Text('Profile'),
+                      selected: false,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const ProfilePage()),
+                        );
+                      },
                     ),
-                    title: const Text('Profile'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      // TODO: Add functionality to navigate to the profile page.
-                    },
-                  ),
-                  ListTile(
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 20.0),
-                    minLeadingWidth: 30,
-                    horizontalTitleGap: 20,
-                    leading: const Icon(
-                      Icons.chat,
-                      color: Color(0xFF6D4C41),
-                    ),
-                    title: const Text('Chat'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const MyHomePage(title: 'Chat App'),
+                    // Chat tile is active, so simply close the drawer.
+                    ListTile(
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 20.0),
+                      minLeadingWidth: 30,
+                      horizontalTitleGap: 20,
+                      leading: const Icon(
+                        Icons.chat,
+                        color: Color(0xFF4B3B2F),
+                      ),
+                      title: const Text(
+                        'Chat',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF4B3B2F),
                         ),
-                      );
-                    },
-                  ),
-                ],
+                      ),
+                      selected: true,
+                      selectedTileColor: Colors.grey[300],
+                      onTap: () {
+                        Navigator.pop(context);
+                      },
+                    ),
+                    // Navigate to Calendar if not active.
+                    ListTile(
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 20.0),
+                      minLeadingWidth: 30,
+                      horizontalTitleGap: 20,
+                      leading: const Icon(
+                        Icons.calendar_today,
+                        color: Color(0xFF6D4C41),
+                      ),
+                      title: const Text(
+                        'Calendar',
+                        style: TextStyle(color: Color(0xFF6D4C41)),
+                      ),
+                      selected: false,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const CalendarPage()),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent, // Remove AppBar background.
-        elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(
-              Icons.menu,
-              color: Color(0xFF6D4C41),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          leading: Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(
+                Icons.menu,
+                color: Color(0xFF4B3B2F),
+              ),
+              onPressed: () => Scaffold.of(context).openDrawer(),
             ),
-            onPressed: () {
-              Scaffold.of(context)
-                  .openDrawer(); // Open the Drawer when pressed.
-            },
           ),
-        ),
-        title: const Text('Chat App'),
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.calendar_today, // Calendar icon on the right.
-              color: Color(0xFF6D4C41),
-              size: 32.0,
-            ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const CalendarPage()),
-              );
-            },
+          title: const Text(
+            'Chat App',
+            style: TextStyle(color: Color(0xFF4B3B2F)),
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return Container(
-                  alignment: message.isUser
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                  child: message.isUser
-                      ? Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            message.text,
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        )
-                      : Container(
-                          padding: const EdgeInsets.all(12),
-                          child: Text(message.text),
-                        ),
+          actions: [
+            IconButton(
+              icon: const Icon(
+                Icons.copy,
+                color: Color(0xFF4B3B2F),
+              ),
+              onPressed: () {
+                // Format all messages into the required JSON structure
+                final formattedChat = _messages
+                    .map((msg) => {
+                          "role": msg.isUser ? "user" : "assistant",
+                          "content": msg.text
+                        })
+                    .toList();
+
+                // Convert to a properly formatted JSON string
+                final jsonStr = '''[
+    ${formattedChat.map((m) => '''    {
+        "role": "${m['role']}",
+        "content": """${m['content']}"""
+    }''').join(',\n')}
+]''';
+
+                // Copy to clipboard
+                Clipboard.setData(ClipboardData(text: jsonStr));
+
+                // Show confirmation
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Conversation copied in JSON format'),
+                    duration: Duration(seconds: 2),
+                  ),
                 );
               },
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(25, 4, 8, 40),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _textController,
-                    focusNode: _textFieldFocus,
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(50),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 20,
-                      ),
-                    ),
-                    onSubmitted: (text) => _handleSend(text),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 8.0, bottom: 4.0),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.arrow_upward, // Send icon is an up arrow.
-                      color: Color(0xFF6D4C41),
-                      size: 32.0,
-                    ),
-                    onPressed: () {
-                      _handleSend(_textController.text);
-                    },
-                  ),
-                ),
-              ],
+          ],
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                itemCount: _messages.length,
+                itemBuilder: (context, index) {
+                  final message = _messages[index];
+                  return MessageBubble(message: message);
+                },
+              ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(25, 4, 8, 40),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _textController,
+                      focusNode: _textFieldFocus,
+                      decoration: InputDecoration(
+                        hintText: 'Type a message...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(50),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 20,
+                        ),
+                      ),
+                      onSubmitted: (text) => _handleSend(text),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8.0, bottom: 4.0),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.arrow_upward, // Send icon is an up arrow.
+                        color: Color(0xFF6D4C41),
+                        size: 32.0,
+                      ),
+                      onPressed: () {
+                        _handleSend(_textController.text);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -355,4 +449,35 @@ class ChatMessage {
   final bool isUser;
 
   ChatMessage({required this.text, required this.isUser});
+}
+
+class MessageBubble extends StatelessWidget {
+  final ChatMessage message;
+  const MessageBubble({Key? key, required this.message}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isUser = message.isUser;
+    return Container(
+      key: ValueKey('messageBubble_${message.text.hashCode}'),
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Container(
+        key: const Key('messageBubble_innerContainer'),
+        margin: isUser
+            ? const EdgeInsets.only(left: 40)
+            : const EdgeInsets.only(right: 40),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isUser ? Theme.of(context).primaryColor : Colors.grey[300],
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          message.text,
+          key: const Key('messageBubble_text'),
+          style: TextStyle(color: isUser ? Colors.white : Colors.black),
+        ),
+      ),
+    );
+  }
 }

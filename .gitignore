@@ -121,3 +121,9 @@ flutter_plugins/
 
 # Web
 **/web/keys/
+
+
+
+.cursor/
+.specstory/
+requirements.txt
