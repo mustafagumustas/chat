@@ -7,6 +7,7 @@ import 'profile_page.dart'; // Import the Profile page
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:developer' as dev;
 
 void main() => runApp(const MyApp());
 
@@ -20,21 +21,6 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Chat App',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         fontFamily: 'CocomatPro',
         primaryColor: const Color(0xFF4CAF50),
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4CAF50)),
@@ -50,7 +36,6 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      // Localization settings: include these if you are targeting multiple locales.
       localizationsDelegates: [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -75,7 +60,7 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   final List<ChatMessage> _messages = [];
   final TextEditingController _textController = TextEditingController();
   final FocusNode _textFieldFocus = FocusNode();
@@ -85,24 +70,24 @@ class _MyHomePageState extends State<MyHomePage> {
 
   String? _userId;
 
-  // Add initState to initialize the chat as soon as the app opens.
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // Register the observer
     _initializeUserId();
   }
 
   Future<void> _initializeUserId() async {
     final prefs = await SharedPreferences.getInstance();
     _userId = prefs.getString('user_id');
-    print('Fetched user_id: $_userId'); // Debugging line
+    dev.log('Fetched user_id: $_userId'); // Debugging line
 
     if (_userId == null) {
+      dev.log('User ID not found, prompting for user input');
       _promptForUserId();
-      print('Fetched user_id: $_userId');
     } else {
-      print('Fetched user_id: $_userId');
-      _initializeChat();
+      dev.log('User ID found, initializing chat');
+      _initializeChat(); // Ensure this runs
     }
   }
 
@@ -142,7 +127,10 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _initializeChat() async {
     if (_userId == null) return; // Ensure user_id is set
 
-    final url = Uri.parse('http://192.168.1.26:8000/process');
+    final url = Uri.parse('http://192.168.1.30:8000/process');
+    // final url = Uri.parse('http://172.23.12.217:8000/process');
+    dev.log('Initializing chat, sending request to $url');
+
     try {
       final response = await http.post(
         url,
@@ -150,28 +138,20 @@ class _MyHomePageState extends State<MyHomePage> {
         body: jsonEncode(
             {"user_id": _userId, "text": "Hello, let's start our chat!"}),
       );
+
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
+        dev.log('Chat initialized successfully: ${decoded['text']}');
+
         setState(() {
           _messages.add(ChatMessage(text: decoded['text'], isUser: false));
         });
         _scrollToBottom();
       } else {
-        setState(() {
-          _messages.add(ChatMessage(
-            text: 'Error initializing chat: ${response.statusCode}',
-            isUser: false,
-          ));
-        });
-        _scrollToBottom();
+        dev.log('Error initializing chat: ${response.statusCode}');
       }
     } catch (e) {
-      setState(() {
-        _messages.add(
-          ChatMessage(text: 'Error initializing chat: $e', isUser: false),
-        );
-      });
-      _scrollToBottom();
+      dev.log('Error initializing chat: $e');
     }
   }
 
@@ -186,8 +166,8 @@ class _MyHomePageState extends State<MyHomePage> {
       });
       _scrollToBottom();
 
-      final url = Uri.parse('http://192.168.1.26:8000/process');
-
+      final url = Uri.parse('http://192.168.1.30:8000/process');
+      // final url = Uri.parse('http://172.23.12.217:8000/process');
       try {
         final response = await http.post(
           url,
@@ -437,6 +417,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // Remove the observer
     _textController.dispose();
     _textFieldFocus.dispose();
     _scrollController.dispose();
