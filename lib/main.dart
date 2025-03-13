@@ -127,8 +127,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   Future<void> _initializeChat() async {
     if (_userId == null) return; // Ensure user_id is set
 
-    final url = Uri.parse('http://192.168.1.30:8000/process');
-    // final url = Uri.parse('http://172.23.12.217:8000/process');
+    final url = Uri.parse('http://52.29.174.231:8000/process');
     dev.log('Initializing chat, sending request to $url');
 
     try {
@@ -166,8 +165,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       });
       _scrollToBottom();
 
-      final url = Uri.parse('http://192.168.1.30:8000/process');
-      // final url = Uri.parse('http://172.23.12.217:8000/process');
+      final url = Uri.parse('http://52.29.174.231:8000/process');
       try {
         final response = await http.post(
           url,
