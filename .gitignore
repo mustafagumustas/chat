@@ -127,3 +127,43 @@ flutter_plugins/
 .cursor/
 .specstory/
 requirements.txt
+
+# Flutter build
+build/
+ios/Pods/
+ios/Runner.xcworkspace/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+android/.gradle/
+android/app/build/
+macos/Flutter/Flutter.framework
+macos/build/
+web/build/
+windows/runner/Debug/
+windows/runner/Release/
+linux/build/
+
+# pub cache & lock
+.pub/
+.pub-cache/
+.zshrc
+/.zshrc
+# Symbolic links (if you use any)
+symlink/
+
+# Firebase (if using)
+firebase.json
+
+# Coverage
+coverage/
+
+# Local properties (Android)
+android/local.properties
+
+# User-specific Xcode settings
+*.xcuserstate
+*.xcuserdatad
+DerivedData/
+
+# Lock files (optional)
+*.lock
