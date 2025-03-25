@@ -12,7 +12,6 @@ workflows:
     actions:
       - name: Flutter Build Step
         script: |
-          echo "Running Flutter build..."
           flutter pub get
           flutter build ios --release --no-codesign
           cd ios
