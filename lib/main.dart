@@ -8,8 +8,25 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as dev;
+import 'dart:io';
 
-void main() => runApp(const MyApp());
+void main() {
+  // Add SSL security exceptions for development/testing
+  HttpOverrides.global = MyHttpOverrides();
+  runApp(const MyApp());
+}
+
+// Custom HTTP overrides for debugging SSL issues
+class MyHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) {
+        dev.log('SSL Certificate Issue - Host: $host, Port: $port');
+        return false; // Still reject bad certificates, but log them
+      };
+  }
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -127,7 +144,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   Future<void> _initializeChat() async {
     if (_userId == null) return; // Ensure user_id is set
 
-    final url = Uri.parse('http://52.29.174.231:8000/process');
+    final url = Uri.parse('https://api.savantai.net/process');
     dev.log('Initializing chat, sending request to $url');
 
     try {
@@ -156,22 +173,34 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
   Future<void> _handleSend(String text) async {
     if (text.isNotEmpty && _userId != null) {
-      // Immediately clear the text field.
       _textController.clear();
 
-      // Add the user's message to the chat list.
       setState(() {
         _messages.add(ChatMessage(text: text, isUser: true));
       });
       _scrollToBottom();
 
-      final url = Uri.parse('http://52.29.174.231:8000/process');
+      final url = Uri.parse('https://api.savantai.net/process');
+      dev.log('Sending request to: $url');
+
       try {
+        dev.log('Request payload: ${jsonEncode({
+              "user_id": _userId,
+              "text": text
+            })}');
+
         final response = await http.post(
           url,
-          headers: {"Content-Type": "application/json"},
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
           body: jsonEncode({"user_id": _userId, "text": text}),
         );
+
+        dev.log('Response status: ${response.statusCode}');
+        dev.log('Response headers: ${response.headers}');
+        dev.log('Response body: ${response.body}');
 
         if (response.statusCode == 200) {
           final decoded = jsonDecode(response.body);
@@ -180,20 +209,24 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           });
           _scrollToBottom();
         } else {
+          dev.log('Error response: ${response.body}');
           setState(() {
             _messages.add(ChatMessage(
-                text: 'Error: ${response.statusCode}', isUser: false));
+                text: 'Error: ${response.statusCode} - ${response.body}',
+                isUser: false));
           });
           _scrollToBottom();
         }
-      } catch (e) {
+      } catch (e, stackTrace) {
+        dev.log('Network error: $e');
+        dev.log('Stack trace: $stackTrace');
         setState(() {
-          _messages.add(ChatMessage(text: 'Error: $e', isUser: false));
+          _messages
+              .add(ChatMessage(text: 'Connection error: $e', isUser: false));
         });
         _scrollToBottom();
       }
 
-      // Bring the focus back to the text field.
       _textFieldFocus.requestFocus();
     }
   }
