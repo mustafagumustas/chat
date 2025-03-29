@@ -102,9 +102,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     if (_userId == null) {
       dev.log('User ID not found, prompting for user input');
       _promptForUserId();
-    } else {
-      dev.log('User ID found, initializing chat');
-      _initializeChat(); // Ensure this runs
     }
   }
 
@@ -137,37 +134,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       setState(() {
         _userId = userId;
       });
-      _initializeChat();
-    }
-  }
-
-  Future<void> _initializeChat() async {
-    if (_userId == null) return; // Ensure user_id is set
-
-    final url = Uri.parse('https://api.savantai.net/process');
-    dev.log('Initializing chat, sending request to $url');
-
-    try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode(
-            {"user_id": _userId, "text": "Hello, let's start our chat!"}),
-      );
-
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        dev.log('Chat initialized successfully: ${decoded['text']}');
-
-        setState(() {
-          _messages.add(ChatMessage(text: decoded['text'], isUser: false));
-        });
-        _scrollToBottom();
-      } else {
-        dev.log('Error initializing chat: ${response.statusCode}');
-      }
-    } catch (e) {
-      dev.log('Error initializing chat: $e');
     }
   }
 
@@ -180,7 +146,10 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       });
       _scrollToBottom();
 
-      final url = Uri.parse('https://api.savantai.net/process');
+      // Production URL
+      // final url = Uri.parse('https://api.savantai.net/process');
+      // Development URL - using actual IP address
+      final url = Uri.parse('http://172.23.12.163:8000/process');
       dev.log('Sending request to: $url');
 
       try {
