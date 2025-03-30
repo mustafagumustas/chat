@@ -147,9 +147,9 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       _scrollToBottom();
 
       // Production URL
-      // final url = Uri.parse('https://api.savantai.net/process');
+      final url = Uri.parse('https://api.savantai.net/process');
       // Development URL - using actual IP address
-      final url = Uri.parse('http://172.23.12.163:8000/process');
+      // final url = Uri.parse('http://172.23.12.163:8000/process');
       dev.log('Sending request to: $url');
 
       try {
