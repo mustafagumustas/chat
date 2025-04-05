@@ -86,12 +86,22 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
 
   String? _userId;
+  String? _sessionId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this); // Register the observer
     _initializeUserId();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startSession();
+    } else if (state == AppLifecycleState.detached) {
+      _endSession();
+    }
   }
 
   Future<void> _initializeUserId() async {
@@ -102,6 +112,66 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     if (_userId == null) {
       dev.log('User ID not found, prompting for user input');
       _promptForUserId();
+    } else {
+      _startSession();
+    }
+  }
+
+  Future<void> _startSession() async {
+    if (_userId == null) return;
+
+    dev.log('Attempting to start session for user: $_userId');
+    final url = Uri.parse('http://api.savantai.net/start_session');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode({"user_id": _userId}),
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        setState(() {
+          _sessionId = decoded['session_id'];
+        });
+        dev.log('Session started with ID: $_sessionId');
+      } else {
+        dev.log(
+            'Error starting session: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      dev.log('Session start error: $e');
+    }
+  }
+
+  Future<void> _endSession() async {
+    if (_userId == null || _sessionId == null) return;
+
+    final url = Uri.parse('https://api.savantai.net/end_session');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: jsonEncode({"user_id": _userId, "session_id": _sessionId}),
+      );
+
+      if (response.statusCode == 200) {
+        dev.log('Session ended successfully');
+        _sessionId = null;
+      } else {
+        dev.log(
+            'Error ending session: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      dev.log('Session end error: $e');
     }
   }
 
@@ -134,6 +204,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       setState(() {
         _userId = userId;
       });
+      await _startSession(); // Start session immediately after setting user ID
     }
   }
 
@@ -146,15 +217,29 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       });
       _scrollToBottom();
 
-      // Production URL
       final url = Uri.parse('https://api.savantai.net/process');
-      // Development URL - using actual IP address
-      // final url = Uri.parse('http://172.23.12.163:8000/process');
       dev.log('Sending request to: $url');
 
       try {
+        // Check if we have a session ID
+        if (_sessionId == null) {
+          await _startSession(); // Try to start a session if we don't have one
+
+          // Verify that session was successfully created
+          if (_sessionId == null) {
+            setState(() {
+              _messages.add(ChatMessage(
+                  text: 'Unable to start a session. Please try again later.',
+                  isUser: false));
+            });
+            _scrollToBottom();
+            return; // Exit early if we couldn't create a session
+          }
+        }
+
         dev.log('Request payload: ${jsonEncode({
               "user_id": _userId,
+              "session_id": _sessionId,
               "text": text
             })}');
 
@@ -164,7 +249,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
             "Content-Type": "application/json",
             "Accept": "application/json",
           },
-          body: jsonEncode({"user_id": _userId, "text": text}),
+          body: jsonEncode(
+              {"user_id": _userId, "session_id": _sessionId, "text": text}),
         );
 
         dev.log('Response status: ${response.statusCode}');
@@ -418,6 +504,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this); // Remove the observer
+    _endSession(); // End the session when the app is closed
     _textController.dispose();
     _textFieldFocus.dispose();
     _scrollController.dispose();
