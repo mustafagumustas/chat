@@ -121,7 +121,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     if (_userId == null) return;
 
     dev.log('Attempting to start session for user: $_userId');
-    final url = Uri.parse('http://api.savantai.net/start_session');
+    final url = Uri.parse('https://api.savantai.net/start_session');
 
     try {
       final response = await http.post(
