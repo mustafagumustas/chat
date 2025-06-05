@@ -122,7 +122,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
     dev.log('Attempting to start session for user: $_userId');
     final url = Uri.parse('https://api.savantai.net/start_session');
-
     try {
       final response = await http.post(
         url,
@@ -237,20 +236,26 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           }
         }
 
-        dev.log('Request payload: ${jsonEncode({
-              "user_id": _userId,
-              "session_id": _sessionId,
-              "text": text
-            })}');
+        // Construct the payload first
+        final requestPayload = {
+          "user_id": _userId,
+          "session_id": _sessionId,
+          "text": text,
+          "client_time": DateTime.now().toIso8601String(),
+          "timezone": DateTime.now().timeZoneName
+        };
 
+        // Log the exact payload
+        dev.log('Request payload: ${jsonEncode(requestPayload)}');
+
+        // Send the payload
         final response = await http.post(
           url,
           headers: {
             "Content-Type": "application/json",
             "Accept": "application/json",
           },
-          body: jsonEncode(
-              {"user_id": _userId, "session_id": _sessionId, "text": text}),
+          body: jsonEncode(requestPayload), // Use the same payload object
         );
 
         dev.log('Response status: ${response.statusCode}');

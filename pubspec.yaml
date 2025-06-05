@@ -2,7 +2,7 @@ name: chat
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -55,16 +55,14 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/fonts/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -78,10 +76,62 @@ flutter:
   # list giving the asset and other descriptors for the font. For
   # example:
   fonts:
-    - family: NotoSans
+    - family: CocomatPro
       fonts:
-        - asset: assets/fonts/NotoSans-Regular.ttf
-        
+        - asset: assets/fonts/CocomatPro-Thin.ttf
+          weight: 100
+        - asset: assets/fonts/CocomatPro-ThinItalic.ttf
+          weight: 100
+          style: italic
+
+        - asset: assets/fonts/CocomatPro-ExtraLight.ttf
+          weight: 200
+        - asset: assets/fonts/CocomatPro-ExtraLightItalic.ttf
+          weight: 200
+          style: italic
+
+        - asset: assets/fonts/CocomatPro-Light.ttf
+          weight: 300
+        - asset: assets/fonts/CocomatPro-LightItalic.ttf
+          weight: 300
+          style: italic
+
+        - asset: assets/fonts/CocomatPro-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/CocomatPro-Italic.ttf
+          weight: 400
+          style: italic
+
+        - asset: assets/fonts/CocomatPro-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/CocomatPro-MediumItalic.ttf
+          weight: 500
+          style: italic
+
+        - asset: assets/fonts/CocomatPro-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/CocomatPro-BoldItalic.ttf
+          weight: 700
+          style: italic
+
+        - asset: assets/fonts/CocomatPro-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/CocomatPro-ExtraBoldItalic.ttf
+          weight: 800
+          style: italic
+
+        - asset: assets/fonts/CocomatPro-Heavy.ttf
+          weight: 900
+        - asset: assets/fonts/CocomatPro-HeavyItalic.ttf
+          weight: 900
+          style: italic
+
+        - asset: assets/fonts/CocomatPro-Black.ttf
+          weight: 900
+        - asset: assets/fonts/CocomatPro-BlackItalic.ttf
+          weight: 900
+          style: italic
+
   #       - asset: fonts/Schyler-Regular.ttf
   #       - asset: fonts/Schyler-Italic.ttf
   #         style: italic
