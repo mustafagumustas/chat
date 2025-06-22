@@ -98,7 +98,9 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _startSession();
+      if (_sessionId == null) {
+        _startSession();
+      }
     } else if (state == AppLifecycleState.detached) {
       _endSession();
     }
