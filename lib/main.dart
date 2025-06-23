@@ -123,7 +123,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     if (_userId == null) return;
 
     dev.log('Attempting to start session for user: $_userId');
-    final url = Uri.parse('https://api.savantai.net/start_session');
+    // final url = Uri.parse('https://api.savantai.net/start_session');
+    final url = Uri.parse('http://localhost:8000/start_session');
     try {
       final response = await http.post(
         url,
@@ -152,7 +153,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   Future<void> _endSession() async {
     if (_userId == null || _sessionId == null) return;
 
-    final url = Uri.parse('https://api.savantai.net/end_session');
+    // final url = Uri.parse('https://api.savantai.net/end_session');
+    final url = Uri.parse('http://localhost:8000/end_session');
 
     try {
       final response = await http.post(
@@ -218,7 +220,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       });
       _scrollToBottom();
 
-      final url = Uri.parse('https://api.savantai.net/process');
+      // final url = Uri.parse('https://api.savantai.net/process');
+      final url = Uri.parse('http://localhost:8000/process');
       dev.log('Sending request to: $url');
 
       try {
