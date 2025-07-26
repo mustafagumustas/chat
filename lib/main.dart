@@ -9,7 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as dev;
 import 'dart:io';
-
+ 
 void main() {
   // Add SSL security exceptions for development/testing
   HttpOverrides.global = MyHttpOverrides();
