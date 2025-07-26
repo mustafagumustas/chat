@@ -214,7 +214,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       _textController.clear();
 
       setState(() {
-        _messages.add(ChatMessage(text: text, isUser: true));
+        _messages.add(
+            ChatMessage(text: text, isUser: true, timestamp: DateTime.now()));
       });
       _scrollToBottom();
 
@@ -231,7 +232,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
             setState(() {
               _messages.add(ChatMessage(
                   text: 'Unable to start a session. Please try again later.',
-                  isUser: false));
+                  isUser: false,
+                  timestamp: DateTime.now()));
             });
             _scrollToBottom();
             return; // Exit early if we couldn't create a session
@@ -267,7 +269,10 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         if (response.statusCode == 200) {
           final decoded = jsonDecode(response.body);
           setState(() {
-            _messages.add(ChatMessage(text: decoded['text'], isUser: false));
+            _messages.add(ChatMessage(
+                text: decoded['text'],
+                isUser: false,
+                timestamp: DateTime.now()));
           });
           _scrollToBottom();
         } else {
@@ -275,7 +280,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           setState(() {
             _messages.add(ChatMessage(
                 text: 'Error: ${response.statusCode} - ${response.body}',
-                isUser: false));
+                isUser: false,
+                timestamp: DateTime.now()));
           });
           _scrollToBottom();
         }
@@ -283,8 +289,10 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         dev.log('Network error: $e');
         dev.log('Stack trace: $stackTrace');
         setState(() {
-          _messages
-              .add(ChatMessage(text: 'Connection error: $e', isUser: false));
+          _messages.add(ChatMessage(
+              text: 'Connection error: $e',
+              isUser: false,
+              timestamp: DateTime.now()));
         });
         _scrollToBottom();
       }
@@ -308,13 +316,13 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // Wrapping with WillPopScope disables the swipe/back gesture.
-    return WillPopScope(
-      onWillPop: () async => false,
+    // Wrapping with PopScope disables the swipe/back gesture.
+    return PopScope(
+      canPop: false,
       child: Scaffold(
         backgroundColor: const Color(0xFFFFF9F0),
         // Add a Drawer that contains the sections menu.
-        drawer: Container(
+        drawer: SizedBox(
           width: 250, // Thinner section width.
           child: Drawer(
             child: SafeArea(
@@ -470,20 +478,31 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
               child: Row(
                 children: [
                   Expanded(
-                    child: TextField(
-                      controller: _textController,
-                      focusNode: _textFieldFocus,
-                      decoration: InputDecoration(
-                        hintText: 'Type a message...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(50),
+                    child: KeyboardListener(
+                      focusNode: FocusNode(),
+                      onKeyEvent: (KeyEvent event) {
+                        // This helps prevent keyboard event inconsistencies
+                        if (event is KeyUpEvent &&
+                            event.logicalKey == LogicalKeyboardKey.backspace) {
+                          // Handle backspace key up event
+                          return;
+                        }
+                      },
+                      child: TextField(
+                        controller: _textController,
+                        focusNode: _textFieldFocus,
+                        decoration: InputDecoration(
+                          hintText: 'Type a message...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(50),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                            horizontal: 20,
+                          ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                          horizontal: 20,
-                        ),
+                        onSubmitted: (text) => _handleSend(text),
                       ),
-                      onSubmitted: (text) => _handleSend(text),
                     ),
                   ),
                   Padding(
@@ -522,13 +541,19 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 class ChatMessage {
   final String text;
   final bool isUser;
+  final DateTime timestamp;
 
-  ChatMessage({required this.text, required this.isUser});
+  ChatMessage(
+      {required this.text, required this.isUser, required this.timestamp});
 }
 
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
-  const MessageBubble({Key? key, required this.message}) : super(key: key);
+  const MessageBubble({super.key, required this.message});
+
+  String _formatTimestamp(DateTime timestamp) {
+    return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -547,10 +572,24 @@ class MessageBubble extends StatelessWidget {
           color: isUser ? Theme.of(context).primaryColor : Colors.grey[300],
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Text(
-          message.text,
-          key: const Key('messageBubble_text'),
-          style: TextStyle(color: isUser ? Colors.white : Colors.black),
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.end,
+          children: [
+            Text(
+              message.text,
+              key: const Key('messageBubble_text'),
+              style: TextStyle(color: isUser ? Colors.white : Colors.black),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _formatTimestamp(message.timestamp),
+              style: TextStyle(
+                color: isUser ? Colors.white70 : Colors.black54,
+                fontSize: 10,
+              ),
+            ),
+          ],
         ),
       ),
     );
