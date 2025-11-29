@@ -4,12 +4,14 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'calendar_page.dart'; // Import the new CalendarPage file
 import 'profile_page.dart'; // Import the Profile page
+import 'sessions_page.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as dev;
 import 'dart:io';
- 
+import 'api_config.dart';
+
 void main() {
   // Add SSL security exceptions for development/testing
   HttpOverrides.global = MyHttpOverrides();
@@ -69,9 +71,15 @@ class MyApp extends StatelessWidget {
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  const MyHomePage(
+      {super.key,
+      required this.title,
+      this.initialSessionId,
+      this.preloadedHistory});
 
   final String title;
+  final String? initialSessionId;
+  final List<Map<String, dynamic>>? preloadedHistory;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -81,6 +89,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   final List<ChatMessage> _messages = [];
   final TextEditingController _textController = TextEditingController();
   final FocusNode _textFieldFocus = FocusNode();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // Added ScrollController for ListView auto-scrolling
   final ScrollController _scrollController = ScrollController();
@@ -92,6 +101,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this); // Register the observer
+    _loadPreloadedSession();
     _initializeUserId();
   }
 
@@ -115,15 +125,74 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       dev.log('User ID not found, prompting for user input');
       _promptForUserId();
     } else {
-      _startSession();
+      if (_sessionId == null) {
+        _startSession();
+      }
     }
+  }
+
+  void _loadPreloadedSession() {
+    if (widget.initialSessionId != null) {
+      _sessionId = widget.initialSessionId;
+    }
+
+    final history = widget.preloadedHistory;
+    if (history == null || history.isEmpty) {
+      return;
+    }
+
+    final baseTime = DateTime.now().subtract(Duration(seconds: history.length));
+    for (var i = 0; i < history.length; i++) {
+      final entry = history[i];
+      final content = (entry['content'] ?? '') as String;
+      if (content.isEmpty) {
+        continue;
+      }
+
+      final role = (entry['role'] ?? '') as String;
+      final timestampRaw = entry['timestamp'];
+      DateTime timestamp;
+      if (timestampRaw is String && timestampRaw.isNotEmpty) {
+        timestamp = DateTime.tryParse(timestampRaw) ??
+            baseTime.add(Duration(seconds: i));
+      } else {
+        timestamp = baseTime.add(Duration(seconds: i));
+      }
+
+      _messages.add(ChatMessage(
+          text: content, isUser: _isUserRole(role), timestamp: timestamp));
+    }
+
+    if (_messages.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    }
+  }
+
+  bool _isUserRole(String role) {
+    final normalized = role.toLowerCase();
+    return normalized == 'human' || normalized == 'user';
+  }
+
+  void _handleSessionSelection(SessionResumeData data) {
+    if (!mounted) return;
+    _scaffoldKey.currentState?.closeDrawer();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MyHomePage(
+          title: widget.title,
+          initialSessionId: data.sessionId,
+          preloadedHistory: data.history,
+        ),
+      ),
+    );
   }
 
   Future<void> _startSession() async {
     if (_userId == null) return;
 
     dev.log('Attempting to start session for user: $_userId');
-    final url = Uri.parse('https://api.savantai.net/start_session');
+    final url = apiUri('start_session');
     try {
       final response = await http.post(
         url,
@@ -152,7 +221,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   Future<void> _endSession() async {
     if (_userId == null || _sessionId == null) return;
 
-    final url = Uri.parse('https://api.savantai.net/end_session');
+    final url = apiUri('end_session');
 
     try {
       final response = await http.post(
@@ -219,7 +288,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       });
       _scrollToBottom();
 
-      final url = Uri.parse('https://api.savantai.net/process');
+      final url = apiUri('process');
       dev.log('Sending request to: $url');
 
       try {
@@ -320,6 +389,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     return PopScope(
       canPop: false,
       child: Scaffold(
+        key: _scaffoldKey,
         backgroundColor: const Color(0xFFFFF9F0),
         // Add a Drawer that contains the sections menu.
         drawer: SizedBox(
@@ -399,6 +469,9 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                               builder: (context) => const CalendarPage()),
                         );
                       },
+                    ),
+                    SessionsDrawerSection(
+                      onSessionSelected: _handleSessionSelection,
                     ),
                   ],
                 ),

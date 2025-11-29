@@ -64,6 +64,7 @@ flutter_plugins/
 .DS_Store
 *.log
 *.json
+!.vscode/launch.json
 **/gradle/
 **/gradlew
 **/gradlew.bat
