@@ -6,11 +6,11 @@ import 'calendar_page.dart'; // Import the new CalendarPage file
 import 'profile_page.dart'; // Import the Profile page
 import 'sessions_page.dart';
 import 'dart:async';
+import 'location_service.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as dev;
 import 'dart:io';
-import 'api_config.dart';
 
 void main() {
   // Add SSL security exceptions for development/testing
@@ -93,6 +93,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
   // Added ScrollController for ListView auto-scrolling
   final ScrollController _scrollController = ScrollController();
+  final LocationService _locationService = LocationService.instance;
 
   String? _userId;
   String? _sessionId;
@@ -103,6 +104,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this); // Register the observer
     _loadPreloadedSession();
     _initializeUserId();
+    unawaited(_locationService.initialize());
   }
 
   @override
@@ -192,7 +194,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     if (_userId == null) return;
 
     dev.log('Attempting to start session for user: $_userId');
-    final url = apiUri('start_session');
+    final url = Uri.parse('http://192.168.1.16:8000/start_session');
     try {
       final response = await http.post(
         url,
@@ -221,7 +223,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   Future<void> _endSession() async {
     if (_userId == null || _sessionId == null) return;
 
-    final url = apiUri('end_session');
+    final url = Uri.parse('http://192.168.1.16:8000/end_session');
 
     try {
       final response = await http.post(
@@ -288,7 +290,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       });
       _scrollToBottom();
 
-      final url = apiUri('process');
+      final url = Uri.parse('http://192.168.1.16:8000/process');
       dev.log('Sending request to: $url');
 
       try {
@@ -309,13 +311,21 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           }
         }
 
+        final locationPayload = await _locationService.getLocationPayload();
+        if (locationPayload != null) {
+          dev.log('Attaching location payload: ${jsonEncode(locationPayload)}');
+        } else {
+          dev.log('No fresh location fix; sending location as null.');
+        }
+
         // Construct the payload first
         final requestPayload = {
           "user_id": _userId,
           "session_id": _sessionId,
           "text": text,
           "client_time": DateTime.now().toIso8601String(),
-          "timezone": DateTime.now().timeZoneName
+          "timezone": DateTime.now().timeZoneName,
+          "location": locationPayload
         };
 
         // Log the exact payload
